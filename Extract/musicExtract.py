@@ -8,7 +8,7 @@ class MusicExtract:
         self.csv = csv_path
 
     def queries(self):
-        data = pd.read_csv(self.csv)
+        self.data = pd.read_csv(self.csv)
         return data
 
     def response(self):
