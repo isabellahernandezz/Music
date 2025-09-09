@@ -1,35 +1,48 @@
+import os
+from pyspark.sql import DataFrame
+from pyspark.sql import functions as F
+
 class Transformer:
-    """
-    Clase para transformar datos extraídos.
-    """
-    def __init__(self, df):
+    def __init__(self, df: DataFrame):
         self.df = df
 
-    def transform(self):
-        """
-        Aplica transformaciones al DataFrame.
-        """
-        try:
-            # Renombrar columnas para compatibilidad con CSV
-            df = self.df.copy()
-            df.rename(columns={
-                'track_popularity': 'popularity',
-                'track_artist': 'artist'
-            }, inplace=True)
+    def transform(self) -> DataFrame:
+        df = self.df
 
-            # Filtrar canciones populares
-            df = df[df["popularity"] > 80].copy()
+        # ✅ Asegurar columna "artist" desde "track_artist"
+        if "track_artist" in df.columns:
+            df = df.withColumn("artist", F.trim(F.lower(F.col("track_artist"))))
+        else:
+            # fallback si ya existe
+            df = df.withColumn("artist", F.trim(F.lower(F.col("artist"))))
 
-            # Convertir nombres de artistas a minúsculas
-            df["artist"] = df["artist"].str.lower()
+        # ✅ Renombrar "track_popularity" a "popularity" si existe
+        if "track_popularity" in df.columns:
+            df = df.withColumnRenamed("track_popularity", "popularity")
 
-            # Convertir duración de ms a minutos
-            if "duration_ms" in df.columns:
-                df["duration_min"] = df["duration_ms"] / 60000
+        # ✅ Filtro por popularidad
+        if "popularity" in df.columns:
+            df = df.filter(F.col("popularity") > 80)
 
-            print("Transformaciones aplicadas correctamente.")
-            return df
+        # ✅ Duración en minutos/segundos si existe duration_ms
+        if "duration_ms" in df.columns:
+            df = df.withColumn("duration_min", (F.col("duration_ms") / 60000).cast("double")) \
+                   .withColumn("duration_sec", (F.col("duration_ms") / 1000).cast("int"))
 
-        except Exception as e:
-            print(f"Error en la transformación de datos: {e}")
-            return self.df
+        # ✅ Categoría de popularidad
+        if "popularity" in df.columns:
+            df = df.withColumn(
+                "popularity_category",
+                F.when(F.col("popularity") >= 90, F.lit("High"))
+                 .when((F.col("popularity") >= 70) & (F.col("popularity") < 90), F.lit("Medium"))
+                 .otherwise(F.lit("Low"))
+            )
+
+        # ✅ Join con géneros si existe el archivo
+        genres_path = os.path.join("data", "input", "genres.csv")
+        if os.path.exists(genres_path):
+            genres = df.sparkSession.read.option("header", True).csv(genres_path)
+            if "artist" in genres.columns:
+                df = df.join(genres, on="artist", how="left")
+
+        return df

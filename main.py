@@ -1,48 +1,51 @@
-# main.py
+import argparse
 import logging
+from pyspark.sql import SparkSession
 from Config.config import Config
 from Extract.extractor import Extractor
 from Transform.transformer import Transformer
 from Load.loader import Loader
 
+# Configuración de logs
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Configuración de logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+def build_spark(app_name=Config.SPARK_APP_NAME, master="local[*]"):
+    """Crea una sesión Spark."""
+    return SparkSession.builder \
+        .appName(app_name) \
+        .master(master) \
+        .config("spark.jars.packages", "org.xerial:sqlite-jdbc:3.34.0") \
+        .getOrCreate()
 
-def main():
-    logging.info("Iniciando proceso ETL")
+def main(args):
+    logging.info("🚀 Iniciando ETL con PySpark")
 
-    try:
-        # Rutas de entrada y salida
-        input_path = "/workspaces/Music/high_popularity_spotify_data_limpio.csv"
-        output_path = "/workspaces/Music/high_popularity_spotify_data_final.csv"
+    # Crear sesión Spark
+    spark = build_spark(master=args.master)
 
-        # 1. EXTRAER
-        logging.info("Extrayendo datos...")
-        extractor = Extractor(input_path)
-        df_raw = extractor.extract()
-        if df_raw is None or df_raw.empty:
-            logging.error("No se pudieron extraer datos.")
-            return
-        logging.info(f"Datos extraídos correctamente de {input_path} ({len(df_raw)} registros)")
+    # EXTRACTION
+    logging.info(f"🔎 Extrayendo datos desde: {args.input}")
+    extractor = Extractor(spark, args.input, Config.CSV_OPTIONS)
+    df_raw = extractor.extract()
 
-        # 2. TRANSFORMAR
-        logging.info("Transformando datos...")
-        transformer = Transformer(df_raw)
-        df_clean = transformer.transform()
-        logging.info(f"Datos transformados: {len(df_clean)} registros")
+    # TRANSFORMATION
+    logging.info("⚙️ Aplicando transformaciones...")
+    transformer = Transformer(df_raw)
+    df_transformed = transformer.transform()
 
-        # 3. CARGAR
-        logging.info("Cargando datos...")
-        loader = Loader(df_clean)
-        loader.to_csv(output_path)
-        logging.info(f"Datos guardados en {output_path}")
+    # LOADING
+    logging.info(f"💾 Guardando resultados en: {args.output}")
+    loader = Loader(df_transformed)
+    loader.save(args.output, fmt=args.format)
 
-    except Exception as e:
-        logging.error(f"Error en el proceso ETL: {e}")
+    logging.info("✅ Pipeline ETL finalizado con éxito")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Pipeline ETL con PySpark")
+    parser.add_argument("--master", type=str, default="local[*]", help="Modo Spark (ej. local[*] o yarn)")
+    parser.add_argument("--input", type=str, default=Config.INPUT_PATH, help="Ruta de entrada (CSV)")
+    parser.add_argument("--output", type=str, default=Config.OUTPUT_PATH, help="Ruta de salida")
+    parser.add_argument("--format", type=str, default="parquet", choices=["parquet", "csv"], help="Formato de salida principal")
+    args = parser.parse_args()
+
+    main(args)

@@ -1,13 +1,23 @@
+import os
+
 class Config:
-    """
-    Clase de configuración para rutas y parámetros del ETL de música.
-    """
-    # Ruta del archivo CSV de música (datos crudos)
-    INPUT_PATH = '/workspaces/ETLProject/Extract/Files/music_dataset.csv'
-    
-    # Ruta del archivo de salida (datos limpios / transformados)
-    OUTPUT_PATH = '/workspaces/ETLProject/Extract/Files/music_clean.csv'
-    
-    # Parámetros opcionales para estandarizar
-    ENCODING = "utf-8"
-    DATE_FORMAT = "%Y-%m-%d"   # por si el dataset incluye fechas (ej: fecha de lanzamiento)
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    # Archivos de entrada y salida
+    INPUT_PATH = os.path.join(BASE_DIR, "data/input/sample_music.csv")
+    OUTPUT_PATH = os.path.join(BASE_DIR, "data/output/music_clean.parquet")
+
+    # Base de datos (solo para pruebas locales)
+    SQLITE_DB_PATH = os.path.join(BASE_DIR, "data/output/etl_data.db")
+    SQLITE_TABLE = "music_clean"
+
+    # Opciones de lectura de CSV
+    CSV_OPTIONS = {
+        "header": True,
+        "inferSchema": True,
+        "multiLine": False,
+        "mode": "PERMISSIVE"
+    }
+
+    # Nombre por defecto de la aplicación Spark
+    SPARK_APP_NAME = "music-etl"

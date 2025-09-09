@@ -1,20 +1,14 @@
-import pandas as pd
+from pyspark.sql import SparkSession
+from Config.config import Config
 
 class Extractor:
-    """
-    Clase para extraer datos de archivos fuente.
-    """
-    def __init__(self, file_path):
-        self.file_path = file_path
+    def __init__(self, spark: SparkSession, file_path: str = None, options: dict = None):
+        self.spark = spark
+        self.file_path = file_path or Config.INPUT_PATH
+        self.options = options or Config.CSV_OPTIONS
 
     def extract(self):
-        """
-        Extrae los datos del archivo especificado.
-        """
-        try:
-            df = pd.read_csv(self.file_path)
-            print(f"Datos extraídos correctamente de {self.file_path}")
-            return df
-        except Exception as e:
-            print(f"Error al extraer datos: {e}")
-            return None
+        print(f"🔎 Extrayendo desde: {self.file_path}")
+        df = self.spark.read.options(**self.options).csv(self.file_path)
+        print(f"✅ Columnas detectadas: {df.columns}")
+        return df
