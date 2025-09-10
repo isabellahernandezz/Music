@@ -28,10 +28,16 @@ def main(args):
     extractor = Extractor(spark, args.input, Config.CSV_OPTIONS)
     df_raw = extractor.extract()
 
+    logging.info("👀 Mostrando los primeros registros del dataset extraído")
+    df_raw.show(5)  # Muestra los primeros 5 registros en consola
+
     # TRANSFORMATION
     logging.info("⚙️ Aplicando transformaciones...")
     transformer = Transformer(df_raw)
     df_transformed = transformer.transform()
+
+    logging.info("👀 Mostrando los primeros registros transformados")
+    df_transformed.show(5)
 
     # LOADING
     logging.info(f"💾 Guardando resultados en: {args.output}")
